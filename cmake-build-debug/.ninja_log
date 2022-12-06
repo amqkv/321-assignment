@@ -1,0 +1,6 @@
+# ninja log v5
+400	512	6920053461277359	Assignment.exe	343693d83a71845a
+2	160	6920061957432468	build.ninja	f0fceb8645be8da2
+2	399	6920053460187538	CMakeFiles/Assignment.dir/input_output.cpp.obj	39266fcb6db932ad
+3	399	6920061985949039	CMakeFiles/Assignment.dir/input_output.cpp.obj	1e42abaa37cea3e3
+399	502	6920061986960694	Assignment.exe	343693d83a71845a
