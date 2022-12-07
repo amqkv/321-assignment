@@ -49,8 +49,8 @@ cmake_ninja_workdir = C$:/Users/amqkv/School/321$ Assignment/321-assignment/cmak
 
 build cmake_object_order_depends_target_Assignment: phony || CMakeFiles/Assignment.dir
 
-build CMakeFiles/Assignment.dir/input_output.cpp.obj: CXX_COMPILER__Assignment_Debug C$:/Users/amqkv/School/321$ Assignment/321-assignment/input_output.cpp || cmake_object_order_depends_target_Assignment
-  DEP_FILE = CMakeFiles\Assignment.dir\input_output.cpp.obj.d
+build CMakeFiles/Assignment.dir/main.cpp.obj: CXX_COMPILER__Assignment_Debug C$:/Users/amqkv/School/321$ Assignment/321-assignment/main.cpp || cmake_object_order_depends_target_Assignment
+  DEP_FILE = CMakeFiles\Assignment.dir\main.cpp.obj.d
   FLAGS = -g -std=gnu++14
   OBJECT_DIR = CMakeFiles\Assignment.dir
   OBJECT_FILE_DIR = CMakeFiles\Assignment.dir
@@ -63,7 +63,7 @@ build CMakeFiles/Assignment.dir/input_output.cpp.obj: CXX_COMPILER__Assignment_D
 #############################################
 # Link the executable Assignment.exe
 
-build Assignment.exe: CXX_EXECUTABLE_LINKER__Assignment_Debug CMakeFiles/Assignment.dir/input_output.cpp.obj
+build Assignment.exe: CXX_EXECUTABLE_LINKER__Assignment_Debug CMakeFiles/Assignment.dir/main.cpp.obj
   FLAGS = -g
   LINK_LIBRARIES = -lkernel32 -luser32 -lgdi32 -lwinspool -lshell32 -lole32 -loleaut32 -luuid -lcomdlg32 -ladvapi32
   OBJECT_DIR = CMakeFiles\Assignment.dir

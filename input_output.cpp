@@ -46,6 +46,7 @@ void generateDDT(const vector<int> sbox_output, int table[][16] ){
             table[difference_x][difference_y] += 2;
         }
     }
+    table[0][0] = 16;
 };
 
 int main(){
