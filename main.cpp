@@ -196,7 +196,13 @@ string decToHex(string input){
     return ss.str();
 }
 
-
+string hexToBin(string input){
+    string binary = "";
+    for(int i = 0; i < input.size(); i++){
+        binary += bitset<4>(stoi(hexToDec(input[i]))).to_string();
+    }
+    return binary;
+}
 
 string getBoxOutput(string input){
     string dec_input;
@@ -254,6 +260,9 @@ int main(){
     cout << "delta z | " << delta_z << endl;
 
     vector<vector<string>> plaintext_ciphertext_pairs = getPlaintextCiphertextPairs();
+
+    string cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[0][2].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[1][2].substr(0,8)));
+
     int k4 = 0;
     uint32_t cr1, cr2, fbox_input_cr1, fbox_input_cr2;
     string fbox_output_cr1, fbox_output_cr2, fbox_output_diff;
@@ -271,7 +280,7 @@ int main(){
         if(i%1000 == 0){
             cout << k4 << " ";
         }
-        if(fbox_output_diff == delta_z){
+        if(xorBinary(fbox_output_diff, delta_z) == cl_diff){
             cout << "found a candidate key" << endl;
             break;
         }
