@@ -8,8 +8,11 @@
 #include <stdint.h>
 #include<math.h>
 #include <bitset>
+#include <chrono>
 #include <thread>
 #include <unordered_set>
+#include <ctime>
+#include <chrono>
 using std::string, std::to_string;
 using std::vector;
 using std::cout, std::endl;
@@ -20,6 +23,7 @@ using std::ifstream, std::getline, std::ofstream;
 using std::stringstream, std::hex, std::stol, std::dec, std::uppercase;
 using std::thread;
 using std::unordered_set;
+using namespace std::chrono;
 
 int sbox[8][16] = {
         /* 1 */
@@ -40,7 +44,7 @@ int sbox[8][16] = {
         { 13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7}
 };
 vector<uint32_t> key_candidates;
-ofstream key_file;
+ofstream k4_key_file;
 void printTable(const vector<vector<int>> &table){
     cout << "diff y   ";
     for(int i = 0; i < 16; i++){
@@ -241,24 +245,19 @@ string xorBinary(string input1, string input2){
     return res;
 }
 bool foundKey = false;
-void findKey(int start, int end,string delta_z, vector<vector<string>> plaintext_ciphertext_pairs){
-
+void findKey(int start, int end, const string delta_z, vector<vector<string>> plaintext_ciphertext_pairs){
     uint32_t fbox_input_cr1, fbox_input_cr2, k4, cr1, cr2;
     string fbox_output_cr1, fbox_output_cr2, fbox_output_diff, cl_diff;
 
-    for(int32_t i = start; i < end; i++){
-        if(foundKey){
-            return;
-        }
-//        if(i % 10000 == 0){
-//            cout << i << " ";
-//        }
-        k4 = i;
-        for(int i = 0; i < plaintext_ciphertext_pairs.size(); i += 2){
-            cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[i][1].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[i][3].substr(0,8)));
 
-            cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[i][0].substr(8, 16))));
-            cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[i][2].substr(8, 16))));
+    for(int32_t i = start; i < end; i++){
+        k4 = i;
+
+        for(int pairNumber = 0; pairNumber < plaintext_ciphertext_pairs.size(); pairNumber++){
+            cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[pairNumber][1].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[pairNumber][3].substr(0,8)));
+
+            cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[pairNumber][1].substr(8, 16))));
+            cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[pairNumber][3].substr(8, 16))));
 
             fbox_input_cr1 = cr1 ^ k4;
             fbox_input_cr2 = cr2 ^ k4;
@@ -268,20 +267,28 @@ void findKey(int start, int end,string delta_z, vector<vector<string>> plaintext
 
             fbox_output_diff = xorBinary(fbox_output_cr1, fbox_output_cr2);
 
-            if(xorBinary(fbox_output_diff, delta_z) != cl_diff){
+            if(xorBinary(fbox_output_diff, delta_z) == cl_diff){
+                cout << "\ncandidate key for pair " << pairNumber << "| " << k4;
+            }
+
+            if(xorBinary(fbox_output_diff, cl_diff) != delta_z){
                 break;
-            } else if (xorBinary(fbox_output_diff, delta_z) == cl_diff && i == plaintext_ciphertext_pairs.size() - 1){
-                foundKey = true;
-                cout << "FOUND THE FUCKING KEY BITCHES " << k4  << " woohooooooo" << endl;
+            } else if (xorBinary(fbox_output_diff, delta_z) == cl_diff && (pairNumber == plaintext_ciphertext_pairs.size() - 1)){
+//                foundKey = true;
+                k4_key_file << k4 << endl;
+                k4_key_file.flush();
+                cout << "FOUND A FUCKING KEY BITCHES " << k4  << " woohooooooo" << endl;
             }
         }
     }
 }
 
 int main(){
-    key_file.open("../candidates.txt");
-    key_file << "hello" << endl;
-    key_file.flush();
+    auto start = high_resolution_clock::now();
+    k4_key_file.open("../k4_candidates.txt");
+    k4_key_file << "hello" << endl;
+    k4_key_file << "hello" << endl;
+    k4_key_file.flush();
     vector<vector<int>> s1_ddt(16);
     vector<vector<int>> s2_ddt(16);
     vector<vector<int>> s3_ddt(16);
@@ -292,49 +299,36 @@ int main(){
     vector<vector<int>> s8_ddt(16);
     vector<vector<vector<int>>> ddtArray = { s1_ddt, s2_ddt, s3_ddt, s4_ddt, s5_ddt, s6_ddt, s7_ddt, s8_ddt };
 
+
     for(int i = 0; i < ddtArray.size(); i++){
         generateDDT(sbox[i], ddtArray[i]);
 //        cout << "================= DDT for S-box " << i << "===================" << endl;
 //        printTable(ddtArray[i]);
     }
 
-
     // Round 2
     vector<vector<int>> highProbabilityPairs = findHighProbabilityPairs(ddtArray);
     string delta_z = permute(getDiffFromTable(highProbabilityPairs, "output").to_string()).to_string();
-    cout << "delta z | " << delta_z << endl;
 
     // getting inputs & outputs from wes-key-28
     vector<vector<string>> plaintext_ciphertext_pairs = getPlaintextCiphertextPairs();
 
-//    string cl_diff;
-    uint32_t cr1, cr2, fbox_input_cr1, fbox_input_cr2;
     string fbox_output_cr1, fbox_output_cr2, fbox_output_diff;
-
-    // { input1, output1, input2, output2 }
-//    string cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[0][1].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[0][3].substr(0,8)));
-//    cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[0][2].substr(8, 16))));
-//    cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[1][2].substr(8, 16))));
 
     // Finding candidates for k4
     vector<thread> threads;
-    uint32_t increment = (INT32_MAX-1)/331;
+    uint32_t increment = (INT32_MAX-1)/63;
     cout << increment;
-    for(int i = 0; i < 331; i++){
+    for(int i = 0; i < 63; i++){
         threads.push_back(thread(findKey, i*increment, (i+1)*increment, delta_z, plaintext_ciphertext_pairs));
-        cout << "end : " << (i+1)*increment << endl;
+        cout << "\nend : " << (i+1)*increment << endl;
     }
 
     for(auto &th : threads){
         th.join();
     }
 
-    if(!foundKey){
-        cout << "no key ;-;" << endl;
-    }
-//    cout << getBoxOutput("E671690B") << endl;
-//    10740000
-
-
-
+    auto stop = high_resolution_clock::now();
+    auto duration = duration_cast<minutes>(stop - start);
+    cout << "Execution time: " << duration.count() << " minutes" << endl;
 }
