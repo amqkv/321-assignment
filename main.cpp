@@ -9,15 +9,17 @@
 #include<math.h>
 #include <bitset>
 #include <thread>
+#include <unordered_set>
 using std::string, std::to_string;
 using std::vector;
 using std::cout, std::endl;
 using std::ofstream;
 using std::reverse;
 using std::bitset;
-using std::ifstream, std::getline;
+using std::ifstream, std::getline, std::ofstream;
 using std::stringstream, std::hex, std::stol, std::dec, std::uppercase;
 using std::thread;
+using std::unordered_set;
 
 int sbox[8][16] = {
         /* 1 */
@@ -37,7 +39,8 @@ int sbox[8][16] = {
         /* 8 */
         { 13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7}
 };
-
+vector<uint32_t> key_candidates;
+ofstream key_file;
 void printTable(const vector<vector<int>> &table){
     cout << "diff y   ";
     for(int i = 0; i < 16; i++){
@@ -129,18 +132,19 @@ vector<vector<string>> getPlaintextCiphertextPairs(){
     string line;
     vector<vector<string>> plaintext_ciphertext_pairs;
     int pairNumber = 0;
-    string input;
-    string output;
+    string input1;
+    string output1;
+    string input2;
+    string output2;
     if(f.is_open()){
         while(getline(f, line)){
-            if(line[0] == '#'){
-                pairNumber++;
-                continue;
-            } else {
-                input = line.substr(0, 16);
-                output = line.substr(17, line.size());
-            }
-            plaintext_ciphertext_pairs.push_back({to_string(pairNumber), input, output});
+            if(line[0] == '#') continue;
+            input1 = line.substr(0, 16);
+            output1 = line.substr(17, 16);
+            input2 = line.substr(34, 16);
+            output2 = line.substr(51, 16);
+            plaintext_ciphertext_pairs.push_back({input1, output1, input2, output2});
+
         }
     }
     f.close();
@@ -236,35 +240,48 @@ string xorBinary(string input1, string input2){
     }
     return res;
 }
+bool foundKey = false;
+void findKey(int start, int end,string delta_z, vector<vector<string>> plaintext_ciphertext_pairs){
 
-void findKey(int start, int end, uint32_t cr1, uint32_t cr2, string delta_z, string cl_diff, vector<uint32_t> key_candidates){
-    uint32_t fbox_input_cr1, fbox_input_cr2, k4;
-    string fbox_output_cr1, fbox_output_cr2, fbox_output_diff;
+    uint32_t fbox_input_cr1, fbox_input_cr2, k4, cr1, cr2;
+    string fbox_output_cr1, fbox_output_cr2, fbox_output_diff, cl_diff;
+
     for(int32_t i = start; i < end; i++){
+        if(foundKey){
+            return;
+        }
+//        if(i % 10000 == 0){
+//            cout << i << " ";
+//        }
         k4 = i;
+        for(int i = 0; i < plaintext_ciphertext_pairs.size(); i += 2){
+            cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[i][1].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[i][3].substr(0,8)));
 
-        fbox_input_cr1 = cr1 ^ k4;
-        fbox_input_cr2 = cr2 ^ k4;
+            cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[i][0].substr(8, 16))));
+            cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[i][2].substr(8, 16))));
 
-        fbox_output_cr1 = getBoxOutput(decToHex(to_string(fbox_input_cr1)));
-        fbox_output_cr2 = getBoxOutput(decToHex(to_string(fbox_input_cr2)));
+            fbox_input_cr1 = cr1 ^ k4;
+            fbox_input_cr2 = cr2 ^ k4;
 
-        fbox_output_diff = xorBinary(fbox_output_cr1, fbox_output_cr2);
+            fbox_output_cr1 = getBoxOutput(decToHex(to_string(fbox_input_cr1)));
+            fbox_output_cr2 = getBoxOutput(decToHex(to_string(fbox_input_cr2)));
 
-        if(xorBinary(fbox_output_diff, delta_z) == cl_diff){
-            key_candidates.push_back(k4);
-            if(key_candidates.size() == 100){
-                cout << "=================== key candidates ==================== " << endl;
-                for(uint32_t candidate : key_candidates){
-                    cout << candidate << endl;
-                }
-                exit(0);
+            fbox_output_diff = xorBinary(fbox_output_cr1, fbox_output_cr2);
+
+            if(xorBinary(fbox_output_diff, delta_z) != cl_diff){
+                break;
+            } else if (xorBinary(fbox_output_diff, delta_z) == cl_diff && i == plaintext_ciphertext_pairs.size() - 1){
+                foundKey = true;
+                cout << "FOUND THE FUCKING KEY BITCHES " << k4  << " woohooooooo" << endl;
             }
         }
     }
 }
 
 int main(){
+    key_file.open("../candidates.txt");
+    key_file << "hello" << endl;
+    key_file.flush();
     vector<vector<int>> s1_ddt(16);
     vector<vector<int>> s2_ddt(16);
     vector<vector<int>> s3_ddt(16);
@@ -290,105 +307,34 @@ int main(){
     // getting inputs & outputs from wes-key-28
     vector<vector<string>> plaintext_ciphertext_pairs = getPlaintextCiphertextPairs();
 
-    string cl_diff;
+//    string cl_diff;
     uint32_t cr1, cr2, fbox_input_cr1, fbox_input_cr2;
     string fbox_output_cr1, fbox_output_cr2, fbox_output_diff;
 
-//    for(int i = 0; i < plaintext_ciphertext_pairs.size(); i += 2){
-//        cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[i][2].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[i+1][2].substr(0,8)));
-//
-//        cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[i][2].substr(8, 16))));
-//        cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[i+1][2].substr(8, 16))));
-//
-//        fbox_input_cr1 = cr1 ^ 987978106;
-//        fbox_input_cr2 = cr2 ^ 987978106;
-//
-//        fbox_output_cr1 = getBoxOutput(decToHex(to_string(fbox_input_cr1)));
-//        fbox_output_cr2 = getBoxOutput(decToHex(to_string(fbox_input_cr2)));
-//
-//        fbox_output_diff = xorBinary(fbox_output_cr1, fbox_output_cr2);
-//
-//        cout << (xorBinary(fbox_output_diff, delta_z) == cl_diff) << endl;
-//    }
-
-//    string cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[0][2].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[1][2].substr(0,8)));
-//    string cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[2][2].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[3][2].substr(0,8)));
-//    string cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[4][2].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[5][2].substr(0,8)));
-//    string cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[6][2].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[7][2].substr(0,8)));
-//    string cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[8][2].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[9][2].substr(0,8)));
-
-
-
+    // { input1, output1, input2, output2 }
+//    string cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[0][1].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[0][3].substr(0,8)));
 //    cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[0][2].substr(8, 16))));
 //    cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[1][2].substr(8, 16))));
-//    cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[2][2].substr(8, 16))));
-//    cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[3][2].substr(8, 16))));
-//    cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[4][2].substr(8, 16))));
-//    cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[5][2].substr(8, 16))));
 
-//    cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[6][2].substr(8, 16))));
-//    cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[7][2].substr(8, 16))));
-//    cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[8][2].substr(8, 16))));
-//    cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[9][2].substr(8, 16))));
-//
-//    fbox_input_cr1 = cr1 ^ 987978106;
-//    fbox_input_cr2 = cr2 ^ 987978106;
-//
-//    fbox_output_cr1 = getBoxOutput(decToHex(to_string(fbox_input_cr1)));
-//    fbox_output_cr2 = getBoxOutput(decToHex(to_string(fbox_input_cr2)));
-//
-//    fbox_output_diff = xorBinary(fbox_output_cr1, fbox_output_cr2);
-//
-//    cout << (xorBinary(fbox_output_diff, delta_z) == cl_diff) << endl;
-
+    // Finding candidates for k4
     vector<thread> threads;
-    vector<uint32_t> key_candidates;
-    uint32_t increment = INT32_MAX/1000;
-    for(int i = 0; i < plaintext_ciphertext_pairs.size(); i += 2){
-        cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[i][2].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[i+1][2].substr(0,8)));
-
-        cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[i][2].substr(8, 16))));
-        cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[i+1][2].substr(8, 16))));
-
-        fbox_input_cr1 = cr1 ^ 987978106;
-        fbox_input_cr2 = cr2 ^ 987978106;
-
-        fbox_output_cr1 = getBoxOutput(decToHex(to_string(fbox_input_cr1)));
-        fbox_output_cr2 = getBoxOutput(decToHex(to_string(fbox_input_cr2)));
-
-        for(int i = 0; i < 1000; i++){
-            threads.push_back(thread(findKey, i*increment, (i+1)*increment, cr1, cr2, delta_z, cl_diff, key_candidates));
-        }
-
-        for(auto &th : threads){
-            th.join();
-        }
+    uint32_t increment = (INT32_MAX-1)/331;
+    cout << increment;
+    for(int i = 0; i < 331; i++){
+        threads.push_back(thread(findKey, i*increment, (i+1)*increment, delta_z, plaintext_ciphertext_pairs));
+        cout << "end : " << (i+1)*increment << endl;
     }
 
+    for(auto &th : threads){
+        th.join();
+    }
+
+    if(!foundKey){
+        cout << "no key ;-;" << endl;
+    }
+//    cout << getBoxOutput("E671690B") << endl;
+//    10740000
 
 
-//    for(int32_t i = 0; i < INT32_MAX; i++){
-//        k4 = i;
-//
-//        fbox_input_cr1 = cr1 ^ k4;
-//        fbox_input_cr2 = cr2 ^ k4;
-//
-//        fbox_output_cr1 = getBoxOutput(decToHex(to_string(fbox_input_cr1)));
-//        fbox_output_cr2 = getBoxOutput(decToHex(to_string(fbox_input_cr2)));
-//
-//        fbox_output_diff = xorBinary(fbox_output_cr1, fbox_output_cr2);
-//
-//        if(i%1000 == 0){
-//            cout << k4 << " ";
-//        }
-//
-//        if(xorBinary(fbox_output_diff, delta_z) == cl_diff){
-//            cout << "found a candidate key" << endl;
-//            break;
-//        }
-//    }
-
-//    cout << "delta z | " << delta_z << endl;
-//    cout << "fbox_output | " << fbox_output_diff << endl;
 
 }
