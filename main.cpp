@@ -44,7 +44,7 @@ int sbox[8][16] = {
         { 13, 2, 8, 4, 6, 15, 11, 1, 10, 9, 3, 14, 5, 0, 12, 7}
 };
 vector<uint32_t> key_candidates;
-ofstream k4_key_file;
+ofstream k4_candidates_3pairs_file, k4_candidates_4pairs_file, k4_candidates_5pairs_file, k4_candidates_6pairs_file;
 void printTable(const vector<vector<int>> &table){
     cout << "diff y   ";
     for(int i = 0; i < 16; i++){
@@ -135,7 +135,6 @@ vector<vector<string>> getPlaintextCiphertextPairs(){
     f.open("../plaintext_ciphertext_pairs.txt");
     string line;
     vector<vector<string>> plaintext_ciphertext_pairs;
-    int pairNumber = 0;
     string input1;
     string output1;
     string input2;
@@ -244,40 +243,52 @@ string xorBinary(string input1, string input2){
     }
     return res;
 }
-bool foundKey = false;
 void findKey(int start, int end, const string delta_z, vector<vector<string>> plaintext_ciphertext_pairs){
     uint32_t fbox_input_cr1, fbox_input_cr2, k4, cr1, cr2;
     string fbox_output_cr1, fbox_output_cr2, fbox_output_diff, cl_diff;
-
 
     for(int32_t i = start; i < end; i++){
         k4 = i;
 
         for(int pairNumber = 0; pairNumber < plaintext_ciphertext_pairs.size(); pairNumber++){
             cl_diff = xorBinary(hexToBin(plaintext_ciphertext_pairs[pairNumber][1].substr(0,8)), hexToBin(plaintext_ciphertext_pairs[pairNumber][3].substr(0,8)));
-
+//            cout << "hex cl1 " << plaintext_ciphertext_pairs[pairNumber][1].substr(0,8) << endl;
+//            cout << "hex cl2 " << plaintext_ciphertext_pairs[pairNumber][3].substr(0,8) << endl;
+//            cout << "bin cl1 " << hexToBin(plaintext_ciphertext_pairs[pairNumber][1].substr(0,8)) << endl;
+//            cout << "bin cl2 " << hexToBin(plaintext_ciphertext_pairs[pairNumber][3].substr(0,8)) << endl;
+//            cout << "cl_diff " << cl_diff << endl;
+//            cout << endl;
+//            cout << "hex cr1 " << plaintext_ciphertext_pairs[pairNumber][1].substr(8, 16) << endl;
+//            cout << "hex cr2 " << plaintext_ciphertext_pairs[pairNumber][3].substr(8, 16) << endl;
             cr1 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[pairNumber][1].substr(8, 16))));
             cr2 = static_cast<uint32_t>(stoul(hexToDec(plaintext_ciphertext_pairs[pairNumber][3].substr(8, 16))));
-
+//            cout << "dec cr1 " << cr1 << endl;
+//            cout << "dec cr2 " << cr2 << endl;
             fbox_input_cr1 = cr1 ^ k4;
             fbox_input_cr2 = cr2 ^ k4;
+//            cout << "cr1 xor k4 " << fbox_input_cr1 << endl;
+//            cout << "cr2 xor k4 " << fbox_input_cr2 << endl;
 
             fbox_output_cr1 = getBoxOutput(decToHex(to_string(fbox_input_cr1)));
             fbox_output_cr2 = getBoxOutput(decToHex(to_string(fbox_input_cr2)));
+//            cout << "fbox output cr1 " << fbox_output_cr1 << endl;
+//            cout << "fbox output cr2 " << fbox_output_cr2 << endl;
 
             fbox_output_diff = xorBinary(fbox_output_cr1, fbox_output_cr2);
-
-            if(xorBinary(fbox_output_diff, delta_z) == cl_diff){
-                cout << "\ncandidate key for pair " << pairNumber << "| " << k4;
-            }
+//            cout << "fbox output diff " << fbox_output_diff << endl;
+//            cout << "fbox output diff xor delta z " << xorBinary(fbox_output_diff, delta_z) << endl;
+//            cout << "delta z " << delta_z << endl;
 
             if(xorBinary(fbox_output_diff, cl_diff) != delta_z){
                 break;
-            } else if (xorBinary(fbox_output_diff, delta_z) == cl_diff && (pairNumber == plaintext_ciphertext_pairs.size() - 1)){
-//                foundKey = true;
-                k4_key_file << k4 << endl;
-                k4_key_file.flush();
-                cout << "FOUND A FUCKING KEY BITCHES " << k4  << " woohooooooo" << endl;
+            } else {
+                cout << "\ncandidate key for pair " << pairNumber << "| " << k4;
+                switch(pairNumber){
+                    case 2: k4_candidates_3pairs_file << k4 << endl; k4_candidates_3pairs_file.flush(); break;
+                    case 3: k4_candidates_4pairs_file << k4 << endl; k4_candidates_4pairs_file.flush(); break;
+                    case 4: k4_candidates_5pairs_file << k4 << endl; k4_candidates_5pairs_file.flush(); break;
+                    case 5: k4_candidates_6pairs_file << k4 << endl; k4_candidates_6pairs_file.flush(); break;
+                }
             }
         }
     }
@@ -285,10 +296,18 @@ void findKey(int start, int end, const string delta_z, vector<vector<string>> pl
 
 int main(){
     auto start = high_resolution_clock::now();
-    k4_key_file.open("../k4_candidates.txt");
-    k4_key_file << "hello" << endl;
-    k4_key_file << "hello" << endl;
-    k4_key_file.flush();
+    k4_candidates_3pairs_file.open("../k4_candidates_3pairs.txt");
+    k4_candidates_4pairs_file.open("../k4_candidates_4pairs.txt");
+    k4_candidates_5pairs_file.open("../k4_candidates_5pairs.txt");
+    k4_candidates_6pairs_file.open("../k4_candidates_6pairs.txt");
+    k4_candidates_3pairs_file << "hello" << endl;
+    k4_candidates_4pairs_file << "hello" << endl;
+    k4_candidates_5pairs_file << "hello" << endl;
+    k4_candidates_6pairs_file << "hello" << endl;
+    k4_candidates_3pairs_file.flush();
+    k4_candidates_4pairs_file.flush();
+    k4_candidates_5pairs_file.flush();
+    k4_candidates_6pairs_file.flush();
     vector<vector<int>> s1_ddt(16);
     vector<vector<int>> s2_ddt(16);
     vector<vector<int>> s3_ddt(16);
@@ -318,11 +337,10 @@ int main(){
     // Finding candidates for k4
     vector<thread> threads;
     uint32_t increment = (INT32_MAX-1)/63;
-    cout << increment;
     for(int i = 0; i < 63; i++){
         threads.push_back(thread(findKey, i*increment, (i+1)*increment, delta_z, plaintext_ciphertext_pairs));
         cout << "\nend : " << (i+1)*increment << endl;
-    }
+
 
     for(auto &th : threads){
         th.join();
